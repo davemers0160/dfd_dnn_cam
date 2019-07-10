@@ -126,12 +126,12 @@ void get_depth_map(net_type &dfd_net, cv::Mat &focus_image, cv::Mat &defocus_ima
     //dlib::matrix<uint16_t> t5;
 
     
-    dlib::cv_image<uint16_t> t0(f[2]);
-    dlib::cv_image<uint16_t> t1(f[1]);
-    dlib::cv_image<uint16_t> t2(f[0]);
-    dlib::cv_image<uint16_t> t3(d[2]);
-    dlib::cv_image<uint16_t> t4(d[1]);
-    dlib::cv_image<uint16_t> t5(d[0]);    
+    dlib::cv_image<uint8_t> t0(f[2]);
+    dlib::cv_image<uint8_t> t1(f[1]);
+    dlib::cv_image<uint8_t> t2(f[0]);
+    dlib::cv_image<uint8_t> t3(d[2]);
+    dlib::cv_image<uint8_t> t4(d[1]);
+    dlib::cv_image<uint8_t> t5(d[0]);
 
     dlib::assign_image(input_img[0], t0);
     dlib::assign_image(input_img[1], t1);
@@ -170,6 +170,7 @@ int main(int argc, char** argv)
     uint8_t status;
     std::string console_input;
     std::string net_name;
+    uint8_t lens_step_order = 0;
 
     std::vector<ftdiDeviceDetails> ftdi_devices;
 
@@ -205,9 +206,9 @@ int main(int argc, char** argv)
     char key = 0;
     cv::Mat focus_image, defocus_image;
     cv::Size img_size;
-    std::string image_window = "Image";
+    std::string image_window = "In-Focus Image";
     std::string depth_window = "Depth Map";
-    std::string defocus_window = "Defocus Image";
+    std::string defocus_window = "Out-of-Focus Image";
     cv::Mat jet_depth_map;
     cv::Mat cv_dm;
     
@@ -289,13 +290,20 @@ int main(int argc, char** argv)
         ld.set_lens_driver_info(ld.lens_rx);
         std::cout << ld << std::endl;
 
-        // reset focus packet
+        // this is checking the order of the step inputs.  If the focus step is greater than the defocus step
+        // they things have to be reversed because of the lens hysteresis
+        if (lens_step[0] > lens_step[1])
+        {
+            lens_step_order = 1;
+        }
+
+        // reset focus packet <- for the hysteresis
         focus_packets.push_back(lens_packet_struct(FAST_SET_VOLT, 1, { 126 }));
         // in-focus packet
         focus_packets.push_back(lens_packet_struct(FAST_SET_VOLT, 1, { lens_step[0] }));
         // out-of-focus packet
         focus_packets.push_back(lens_packet_struct(FAST_SET_VOLT, 1, { lens_step[1] }));
-        
+
 
         ld.send_lens_packet(focus_packets[0], lens_driver_handle);
         ld.send_lens_packet(focus_packets[1], lens_driver_handle);
@@ -308,18 +316,15 @@ int main(int argc, char** argv)
 
         // Initialize the camera
         error = init_camera(cam, cam_index, camera_config, cam_info);
-        if (error == FC2::PGRERROR_OK)
-        {
-            std::cout << "------------------------------------------------------------------" << std::endl;
-            std::cout << cam_info << std::endl;
-            cam_serial_number = (uint64_t)cam_info.serialNumber;
-        }
-        else
+        if (error != FC2::PGRERROR_OK)
         {
             print_error(error);
             std::cin.ignore();
             return -1;
         }
+        std::cout << "------------------------------------------------------------------" << std::endl;
+        std::cout << cam_info << std::endl;
+        cam_serial_number = (uint64_t)cam_info.serialNumber;
 
         error = config_imager_format(cam, cam_image_params[0], cam_image_params[1], cam_image_params[2], cam_image_params[3], pixel_format);
         if (error != FC2::PGRERROR_OK)
@@ -373,7 +378,7 @@ int main(int argc, char** argv)
             print_error(error);
         }
 
-        sleep_ms(500);
+        //sleep_ms(500);
 
         // config Gain to initial value and set to auto
         config_property(cam, Gain, FC2::GAIN, cam_properties.gain.auto_mode, cam_properties.gain.on_off, cam_properties.gain.abs_control);
@@ -387,7 +392,7 @@ int main(int argc, char** argv)
         std::cout << "------------------------------------------------------------------" << std::endl;
         std::cout << "X, Y, Width, Height: " << cam_image_params[0] << ", " << cam_image_params[1] << ", " << cam_image_params[2] << ", " << cam_image_params[3] << std::endl;
         std::cout << cam_properties;
-        std::cout << "------------------------------------------------------------------" << std::endl;
+        std::cout << "------------------------------------------------------------------" << std::endl << std::endl;
 
         //std::cout << "Root save location: " << output_save_location << std::endl;
         //std::cout << "------------------------------------------------------------------" << std::endl;
@@ -409,11 +414,13 @@ int main(int argc, char** argv)
 
         std::cout << dfd_net << std::endl;
 
-        image_window = image_window + num2str<uint64_t>(cam_serial_number, "_%llu");
+        //image_window = image_window + num2str<uint64_t>(cam_serial_number, "_%llu");
 
         std::cout << std::endl << "-----------------------------------------------------------------------------" << std::endl;
-        std::cout << "Press c to capture an image pair." << std::endl;
-        std::cout << "Press q to quit." << std::endl;
+        std::cout << "Press s to set shutter speed" << std::endl;
+        std::cout << "Press g to set gain" << std::endl;
+        //std::cout << "Press c to capture an image pair." << std::endl;
+        std::cout << "Press q to quit" << std::endl;
         //std::getline(std::cin, console_input);
 
 //-------------------------------------------------------------------------------
@@ -428,21 +435,53 @@ int main(int argc, char** argv)
             // send the focus packet to reset the lens driver to a known good state
             ld.send_lens_packet(focus_packets[0], lens_driver_handle);
 
-            // get the in-focus image
-            error = get_image(cam, lens_driver_handle, focus_packets[1], focus_image);
-            if (error != FC2::PGRERROR_OK)
+            switch (lens_step_order)
             {
-                print_error(error);
+                case 1:
+                    // get the out-of-focus image
+                    error = get_image(cam, lens_driver_handle, focus_packets[2], defocus_image);
+                    if (error != FC2::PGRERROR_OK)
+                    {
+                        print_error(error);
+                    }
+
+                    //sleep_ms(500);
+
+                    // get the in-focus image
+                    error = get_image(cam, lens_driver_handle, focus_packets[1], focus_image);
+                    if (error != FC2::PGRERROR_OK)
+                    {
+                        print_error(error);
+                    }
+                    break;
+
+                default:
+                    // get the in-focus image
+                    error = get_image(cam, lens_driver_handle, focus_packets[1], focus_image);
+                    if (error != FC2::PGRERROR_OK)
+                    {
+                        print_error(error);
+                    }
+
+                    //sleep_ms(20);
+
+                    // get the out-of-focus image
+                    error = get_image(cam, lens_driver_handle, focus_packets[2], defocus_image);
+                    if (error != FC2::PGRERROR_OK)
+                    {
+                        print_error(error);
+                    }
+                    break;
+
+
             }
 
-            //sleep_ms(10);
+            //sleep_ms(200);
 
-            // get the out-of-focus image
-            error = get_image(cam, lens_driver_handle, focus_packets[2], defocus_image);
-            if (error != FC2::PGRERROR_OK)
-            {
-                print_error(error);
-            }
+            // display the input images
+            cv::imshow(image_window, focus_image);
+            cv::imshow(defocus_window, defocus_image);
+            cv::waitKey(1);
 
             // process the images to get them in the right format for network input
             get_depth_map(dfd_net, focus_image, defocus_image, depth_map);
@@ -453,10 +492,8 @@ int main(int argc, char** argv)
             cv_dm = dlib::toMat(depth_map);
             cv_dm.convertTo(cv_dm, CV_8UC1, 1, 0);
             
-            //cv::applyColorMap(jet_depth_map, jet_depth_map, cv::COLORMAP_JET);
+            cv::applyColorMap(cv_dm, cv_dm, cv::COLORMAP_JET);
 
-            cv::imshow(image_window, focus_image);
-            cv::imshow(defocus_window, defocus_image);
             cv::imshow(depth_window, cv_dm);
 
             key = cv::waitKey(1);
@@ -467,7 +504,7 @@ int main(int argc, char** argv)
                     std::cout << "Enter focus lens value:";
                     std::getline(std::cin, console_input);
                     try {
-                        focus_packets[1].data[0] = stoi(console_input);
+                        focus_packets[1].data[0] = std::stoi(console_input);
                     }
                     catch (...) {}
                     break;
@@ -476,7 +513,7 @@ int main(int argc, char** argv)
                     std::cout << "Enter defocus lens value:";
                     std::getline(std::cin, console_input);
                     try {
-                        focus_packets[2].data[0] = stoi(console_input);
+                        focus_packets[2].data[0] = std::stoi(console_input);
                     }
                     catch (...) {}
                     break;
@@ -485,10 +522,39 @@ int main(int argc, char** argv)
 
                     break;
 
+                case 's':
+                    std::cout << "Enter shutter speed (ms):";
+                    std::getline(std::cin, console_input);
+                    try {
+                        cam_properties.shutter.value = std::stof(console_input);
+                        config_property(cam, Shutter, FC2::SHUTTER, cam_properties.shutter.auto_mode, cam_properties.shutter.on_off, cam_properties.shutter.abs_control);
+                        error = set_abs_property(cam, Shutter, cam_properties.shutter.value);
+                        if (error != FC2::PGRERROR_OK)
+                        {
+                            print_error(error);
+                        }
+                    }
+                    catch (...) {}
+                    break;
+
+                case 'g':
+                    std::cout << "Enter gain value:";
+                    std::getline(std::cin, console_input);
+                    try {
+                        cam_properties.gain.value = std::stof(console_input);
+                        config_property(cam, Gain, FC2::GAIN, cam_properties.gain.auto_mode, cam_properties.gain.on_off, cam_properties.gain.abs_control);
+                        error = set_abs_property(cam, Gain, cam_properties.gain.value);
+                        if (error != FC2::PGRERROR_OK)
+                        {
+                            print_error(error);
+                        }
+                    }
+                    catch (...) {}
+                    break;
+
                 default:
                     break;
             }
-
 
             //std::cout << ".";
             //std::cout << "Ready..." << std::endl;
@@ -499,6 +565,7 @@ int main(int argc, char** argv)
     catch(std::exception e)
     {
         std::cout << "Error: " << e.what() << std::endl;
+        std::cin.ignore();    
     }
 
     // turn off the software trigger
@@ -527,7 +594,7 @@ int main(int argc, char** argv)
     cv::destroyAllWindows();
     
     std::cout << std::endl << "Program Compete!" << std::endl;
-    std::cin.ignore();
+
     
     return 0;    
     
