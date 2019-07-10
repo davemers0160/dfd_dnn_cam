@@ -1,8 +1,8 @@
-
+#define _CRT_SECURE_NO_WARNINGS	
 #include "ftdi_functions.h"
 
 #if defined(_WIN32) | defined(__WIN32__) | defined(__WIN32) | defined(_WIN64) | defined(__WIN64)
-#define _CRT_SECURE_NO_WARNINGS					
+				
 
 #ifndef _WIN32_WINNT		// Allow use of features specific to Windows XP or later.                   
 #define _WIN32_WINNT 0x0501	// Change this to the appropriate value to target other versions of Windows.
@@ -104,8 +104,7 @@ FC2::Error get_image(FC2::Camera &cam, FT_HANDLE &lens_driver_handle, lens_packe
 template <typename net_type>
 void get_depth_map(net_type &dfd_net, cv::Mat &focus_image, cv::Mat &defocus_image, dlib::matrix<uint16_t> &dm)
 {
-    uint32_t idx, jdx;
-    
+    //uint32_t idx, jdx;
 
     // resize the require dnn input image to the same size as the captured images
     std::array<dlib::matrix<uint16_t>, img_depth> input_img;
@@ -118,14 +117,29 @@ void get_depth_map(net_type &dfd_net, cv::Mat &focus_image, cv::Mat &defocus_ima
     std::vector<cv::Mat> f, d;
     cv::split(focus_image, f);
     cv::split(defocus_image, d);
+
+    //dlib::matrix<uint16_t> t0;
+    //dlib::matrix<uint16_t> t1;
+    //dlib::matrix<uint16_t> t2;
+    //dlib::matrix<uint16_t> t3;
+    //dlib::matrix<uint16_t> t4;
+    //dlib::matrix<uint16_t> t5;
+
     
-    dlib::cv_image<uint16_t> input_img[0](f[2]);
-    dlib::cv_image<uint16_t> input_img[1](f[1]);
-    dlib::cv_image<uint16_t> input_img[2](f[0]);
-    dlib::cv_image<uint16_t> input_img[3](d[2]);
-    dlib::cv_image<uint16_t> input_img[4](d[1]);
-    dlib::cv_image<uint16_t> input_img[5](d[0]);    
-    
+    dlib::cv_image<uint16_t> t0(f[2]);
+    dlib::cv_image<uint16_t> t1(f[1]);
+    dlib::cv_image<uint16_t> t2(f[0]);
+    dlib::cv_image<uint16_t> t3(d[2]);
+    dlib::cv_image<uint16_t> t4(d[1]);
+    dlib::cv_image<uint16_t> t5(d[0]);    
+
+    dlib::assign_image(input_img[0], t0);
+    dlib::assign_image(input_img[1], t1);
+    dlib::assign_image(input_img[2], t2);
+    dlib::assign_image(input_img[3], t3);
+    dlib::assign_image(input_img[4], t4);
+    dlib::assign_image(input_img[5], t5);
+
 
     // loop through and place each pixel in the correct location - opencv -> BGR pixel
     // for (idx = 0; idx<focus_image.rows; ++idx)
@@ -146,8 +160,6 @@ void get_depth_map(net_type &dfd_net, cv::Mat &focus_image, cv::Mat &defocus_ima
     // run the network
     dm = dfd_net(input_img);
     
-    
-
 }   // end of get_depth_map
 
 // ----------------------------------------------------------------------------------------
@@ -217,21 +229,12 @@ int main(int argc, char** argv)
     parse_dnn_cam_file(parse_filename, lens_step, cam_image_params, cam_properties, net_name);
     
     // camera properties settings (value, AutoMode, OnOff, absControl)
-    // cam_properties.sharpness = std::make_tuple(2048, false, true, false);
-    // cam_properties.fps = std::make_tuple(30.0, false, true, true);
-    // cam_properties.shutter = std::make_tuple(33.0, false, true, true);
-    // cam_properties.gain = std::make_tuple(5.0, true, true, true);
-    // cam_properties.auto_exp = std::make_tuple(0.0, true, true, true);
-    // cam_properties.brightness = std::make_tuple(4.0, false, true, true);
-    cam_properties.auto_exp = 0.0;
-    cam_properties.brightness = 4.0;    
-    
-    // std::tuple<uint32_t, bool, bool, bool> sharpness(2500, false, true, false);
-    // std::tuple<float, bool, bool, bool> shutter(33.0f, true, true, true);
-    // std::tuple<float, bool, bool, bool> gain(5.0f, true, true, true);
-    // std::tuple<float, bool, bool, bool> brightness(4.0f, false, true, true);
-    // std::tuple<float, bool, bool, bool> auto_exp(0.0f, true, true, true);
-    // std::tuple<float, bool, bool, bool> fps(20.0f, false, true, true);
+    //cam_properties.sharpness = cam_prop<uint32_t>(2500, false, true, false);
+    //cam_properties.fps = cam_prop<float>(30.0f, false, true, true);
+    //cam_properties.shutter = cam_prop<float>(10.0f, false, true, true);
+    //cam_properties.gain = cam_prop<float>(8.0f, true, true, true);
+    cam_properties.auto_exp = cam_prop<float>(0.0f, true, true, true);
+    cam_properties.brightness = cam_prop<float>(4.0f, true, true, true);   
 
     focus_packets.clear();
     
@@ -331,40 +334,40 @@ int main(int argc, char** argv)
         }
 
         // set the frame rate for the camera
-        config_property(cam, Framerate, FC2::FRAME_RATE, std::get<1>(fps), std::get<2>(fps), std::get<3>(fps));
-        error = set_abs_property(cam, Framerate, std::get<0>(fps));
+        config_property(cam, Framerate, FC2::FRAME_RATE, cam_properties.fps.auto_mode, cam_properties.fps.on_off, cam_properties.fps.abs_control);
+        error = set_abs_property(cam, Framerate, cam_properties.fps.value);
         if (error != FC2::PGRERROR_OK)
         {
             print_error(error);
         }
 
         // config Sharpness to initial value and set to auto
-        config_property(cam, Sharpness, FC2::SHARPNESS, std::get<1>(sharpness), std::get<2>(sharpness), std::get<3>(sharpness));
-        error = set_int_property(cam, Sharpness, std::get<0>(sharpness));
+        config_property(cam, Sharpness, FC2::SHARPNESS, cam_properties.sharpness.auto_mode, cam_properties.sharpness.on_off, cam_properties.sharpness.abs_control);
+        error = set_int_property(cam, Sharpness, cam_properties.sharpness.value);
         if (error != FC2::PGRERROR_OK)
         {
             print_error(error);
         }
 
         // configure the auto-exposure property
-        config_property(cam, Auto_Exposure, FC2::AUTO_EXPOSURE, std::get<1>(auto_exp), std::get<2>(auto_exp), std::get<3>(auto_exp));
-        error = set_abs_property(cam, Auto_Exposure, std::get<0>(auto_exp));
+        config_property(cam, Auto_Exposure, FC2::AUTO_EXPOSURE, cam_properties.auto_exp.auto_mode, cam_properties.auto_exp.on_off, cam_properties.auto_exp.abs_control);
+        error = set_abs_property(cam, Auto_Exposure, cam_properties.auto_exp.value);
         if (error != FC2::PGRERROR_OK)
         {
             print_error(error);
         }
 
         // configure the brightness property
-        config_property(cam, Brightness, FC2::BRIGHTNESS, std::get<1>(brightness), std::get<2>(brightness), std::get<3>(brightness));
-        error = set_abs_property(cam, Brightness, std::get<0>(brightness));
+        config_property(cam, Brightness, FC2::BRIGHTNESS, cam_properties.brightness.auto_mode, cam_properties.brightness.on_off, cam_properties.brightness.abs_control);
+        error = set_abs_property(cam, Brightness, cam_properties.brightness.value);
         if (error != FC2::PGRERROR_OK)
         {
             print_error(error);
         }
 
         // config Shutter to initial value and set to auto
-        config_property(cam, Shutter, FC2::SHUTTER, std::get<1>(shutter), std::get<2>(shutter), std::get<3>(shutter));
-        error = set_abs_property(cam, Shutter, std::get<0>(shutter));
+        config_property(cam, Shutter, FC2::SHUTTER, cam_properties.shutter.auto_mode, cam_properties.shutter.on_off, cam_properties.shutter.abs_control);
+        error = set_abs_property(cam, Shutter, cam_properties.shutter.value);
         if (error != FC2::PGRERROR_OK)
         {
             print_error(error);
@@ -373,8 +376,8 @@ int main(int argc, char** argv)
         sleep_ms(500);
 
         // config Gain to initial value and set to auto
-        config_property(cam, Gain, FC2::GAIN, std::get<1>(gain), std::get<2>(gain), std::get<3>(gain));
-        error = set_abs_property(cam, Gain, std::get<0>(gain));
+        config_property(cam, Gain, FC2::GAIN, cam_properties.gain.auto_mode, cam_properties.gain.on_off, cam_properties.gain.abs_control);
+        error = set_abs_property(cam, Gain, cam_properties.gain.value);
         if (error != FC2::PGRERROR_OK)
         {
             print_error(error);

@@ -6,16 +6,7 @@
 # Line 3: comma separated values for the camera properties: sharpness, fps, shutter speed (ms), gain
 # Line 4: net_file (std::string): This file contains the weights used in a given network architecture
 
-# Camera configuration file
-# 
-# Parameters should be supplied in the following order:
-# Line 1: colon separated values of the lens driver voltage step range (start:inc:stop)
-# Line 2: comma separated values for the x offset, y offset, width, height of the camera
-# Line 3: comma separated values for the camera properties: sharpness, fps, shutter range, gain
-# Line 4: single value for the number of images to capture to average
-# Line 5: base directory where the results will be saved
-
 141, 129
 400, 332, 480, 360
 2500, 10, 50, 8.0
-D:/IUPUI/PhD/Results/dfd_dnn_rw/v6/2268291/2268291.pbs01_5/nets/dfd_net_v6a_rw_61_133_128_144x48_8b_HPC.dat
+D:/IUPUI/PhD/Results/dfd_dnn_rw/v14_rw4/64066.ir1utl01_51_nets/nets/dfd_net_dfd_6x_v14a_141_129_v3_32x32_HPC.dat

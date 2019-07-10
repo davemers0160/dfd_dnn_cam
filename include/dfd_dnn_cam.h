@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <utility>
 
+#include "chameleon_utilities.h"
 #include "file_parser.h"
 
 extern const uint32_t img_depth;
@@ -56,20 +57,24 @@ void parse_dnn_cam_file(std::string parse_filename, std::vector<uint8_t> &lens_s
                 }
                 break;
                 
+            // get the camera capture properties
             case 2:
-                try {
-                    
-                    cam_properties.sharpness = stoi(params[idx][0]);
-                    cam_properties.fps = stof(params[idx][1]);
-                    cam_properties.shutter = stod(params[idx][0]);
-                    cam_properties.gain = stof(params[idx][0]);                    
+                try {                   
+                    //cam_properties.sharpness = stoi(params[idx][0]);
+                    //cam_properties.fps = stof(params[idx][1]);
+                    //cam_properties.shutter = stod(params[idx][0]);
+                    //cam_properties.gain = stof(params[idx][0]);
+                    cam_properties.sharpness = cam_prop<uint32_t>(stoi(params[idx][0]), false, true, false);
+                    cam_properties.fps = cam_prop<float>(stof(params[idx][1]), false, true, true);
+                    cam_properties.shutter = cam_prop<float>(stof(params[idx][2]), false, true, true);
+                    cam_properties.gain = cam_prop<float>(stof(params[idx][3]), true, true, true);
                 }
                 catch (std::exception &e) {
                     std::cout << e.what() << std::endl;
-                    cam_properties.sharpness = 2500;
-                    cam_properties.fps = 10.0;
-                    cam_properties.shutter = 50.0;
-                    cam_properties.gain = 8.0;                      
+                    cam_properties.sharpness = cam_prop<uint32_t>(2500, false, true, false);
+                    cam_properties.fps = cam_prop<float>(10.0f, false, true, true);
+                    cam_properties.shutter = cam_prop<float>(150.0f, false, true, true);
+                    cam_properties.gain = cam_prop<float>(8.0f, true, true, true);
                 }
                 break;
             // net name
