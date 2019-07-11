@@ -7,6 +7,6 @@
 # Line 4: net_file (std::string): This file contains the weights used in a given network architecture
 
 141, 129
-400, 332, 480, 360
-2500, 10, 60, 1.0
+440, 312, 128, 128
+2300, 10, 20, 1.0
 D:/IUPUI/PhD/Results/dfd_dnn_rw/v14_rw4/64066.ir1utl01_51_nets/nets/dfd_net_dfd_6x_v14a_141_129_v3_32x32_HPC.dat

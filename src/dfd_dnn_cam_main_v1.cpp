@@ -3,7 +3,6 @@
 
 #if defined(_WIN32) | defined(__WIN32__) | defined(__WIN32) | defined(_WIN64) | defined(__WIN64)
 				
-
 #ifndef _WIN32_WINNT		// Allow use of features specific to Windows XP or later.                   
 #define _WIN32_WINNT 0x0501	// Change this to the appropriate value to target other versions of Windows.
 #endif		
@@ -32,7 +31,6 @@
 // Point Grey Includes
 #include "FlyCapture2.h"
 #include "chameleon_utilities.h"
-//#include "image_capture.h"
 namespace FC2 = FlyCapture2;
 
 // Lens Driver Includes
@@ -43,7 +41,6 @@ namespace FC2 = FlyCapture2;
 #include "num2string.h"
 #include "get_current_time.h"
 #include "file_parser.h"
-//#include "make_dir.h"
 
 // net definitions
 #include "dfd_net_v14.h"
@@ -52,23 +49,18 @@ namespace FC2 = FlyCapture2;
 #include <dlib/dnn.h>
 #include <dlib/image_io.h>
 #include <dlib/data_io.h>
-//#include <dlib/gui_widgets.h>
 #include <dlib/image_transforms.h>
 #include <dlib/opencv.h>
 
 // ----------------------------------------------------------------------------------------
 
-FC2::Error get_image(FC2::Camera &cam, FT_HANDLE &lens_driver_handle, lens_packet_struct &lens_packet, cv::Mat &image)
+FC2::Error get_image(FC2::Camera &cam, cv::Mat &image)
 {
     FC2::Error error;
     FC2::Image rawImage, convertedImageCV;
     uint32_t image_rows, image_cols;
     unsigned char *image_data = NULL;
-    lens_driver ld;
-    
-    ld.send_lens_packet(lens_packet, lens_driver_handle);
-    sleep_ms(20);
-    
+
     // wait for the camera to be ready for a software trigger
     poll_trigger_ready(cam);
 
@@ -78,8 +70,8 @@ FC2::Error get_image(FC2::Camera &cam, FT_HANDLE &lens_driver_handle, lens_packe
         print_error(error);
         std::cout << "Error firing software trigger" << std::endl;
     }
-    // get the images from the camera
     
+    // get the images from the camera   
     error = cam.RetrieveBuffer(&rawImage);
     if (error != FC2::PGRERROR_OK)
     {
@@ -88,7 +80,7 @@ FC2::Error get_image(FC2::Camera &cam, FT_HANDLE &lens_driver_handle, lens_packe
 
     image_cols = rawImage.GetCols();
     image_rows = rawImage.GetRows();
-    //rawImage.GetDimensions(&, &, &image_stride);    // , &pixFormat, &btFormat);
+
     error = rawImage.Convert(FC2::PIXEL_FORMAT_BGR, &convertedImageCV);
     //image_data = convertedImageCV.GetData();
     //image_data = rawImage.GetData();
@@ -104,27 +96,13 @@ FC2::Error get_image(FC2::Camera &cam, FT_HANDLE &lens_driver_handle, lens_packe
 template <typename net_type>
 void get_depth_map(net_type &dfd_net, cv::Mat &focus_image, cv::Mat &defocus_image, dlib::matrix<uint16_t> &dm)
 {
-    //uint32_t idx, jdx;
-
     // resize the require dnn input image to the same size as the captured images
     std::array<dlib::matrix<uint16_t>, img_depth> input_img;
-    // for (idx = 0; idx < img_depth; ++idx)
-    // {
-        // input_img[idx].set_size(focus_image.rows, focus_image.cols);
-    // }
     
     // split the opencv images into its channels
     std::vector<cv::Mat> f, d;
     cv::split(focus_image, f);
     cv::split(defocus_image, d);
-
-    //dlib::matrix<uint16_t> t0;
-    //dlib::matrix<uint16_t> t1;
-    //dlib::matrix<uint16_t> t2;
-    //dlib::matrix<uint16_t> t3;
-    //dlib::matrix<uint16_t> t4;
-    //dlib::matrix<uint16_t> t5;
-
     
     dlib::cv_image<uint8_t> t0(f[2]);
     dlib::cv_image<uint8_t> t1(f[1]);
@@ -139,23 +117,6 @@ void get_depth_map(net_type &dfd_net, cv::Mat &focus_image, cv::Mat &defocus_ima
     dlib::assign_image(input_img[3], t3);
     dlib::assign_image(input_img[4], t4);
     dlib::assign_image(input_img[5], t5);
-
-
-    // loop through and place each pixel in the correct location - opencv -> BGR pixel
-    // for (idx = 0; idx<focus_image.rows; ++idx)
-    // {
-        // for (jdx = 0; jdx < focus_image.cols; ++jdx)
-        // {
-            // cv::Vec3w f1 = focus_image.at<cv::Vec3b>(idx, jdx);
-            // dlib::assign_pixel(input_img[0](idx, jdx), f1[2]);
-            // dlib::assign_pixel(input_img[1](idx, jdx), f1[1]);
-            // dlib::assign_pixel(input_img[2](idx, jdx), f1[0]);
-            // cv::Vec3w d1 = focus_image.at<cv::Vec3b>(idx, jdx);
-            // dlib::assign_pixel(input_img[3](idx, jdx), d1[2]);
-            // dlib::assign_pixel(input_img[4](idx, jdx), d1[1]);
-            // dlib::assign_pixel(input_img[5](idx, jdx), d1[0]);
-        // }
-    // }
 
     // run the network
     dm = dfd_net(input_img);
@@ -378,8 +339,6 @@ int main(int argc, char** argv)
             print_error(error);
         }
 
-        //sleep_ms(500);
-
         // config Gain to initial value and set to auto
         config_property(cam, Gain, FC2::GAIN, cam_properties.gain.auto_mode, cam_properties.gain.on_off, cam_properties.gain.abs_control);
         error = set_abs_property(cam, Gain, cam_properties.gain.value);
@@ -421,7 +380,6 @@ int main(int argc, char** argv)
         std::cout << "Press g to set gain" << std::endl;
         //std::cout << "Press c to capture an image pair." << std::endl;
         std::cout << "Press q to quit" << std::endl;
-        //std::getline(std::cin, console_input);
 
 //-------------------------------------------------------------------------------
 // Main loop to capture the images and process them through the network
@@ -430,25 +388,31 @@ int main(int argc, char** argv)
         cv::namedWindow(depth_window, cv::WindowFlags::WINDOW_NORMAL);
         cv::namedWindow(defocus_window, cv::WindowFlags::WINDOW_NORMAL);
 
+        uint32_t lens_delay = 50;
+
         while (key != 'q')
         {
             // send the focus packet to reset the lens driver to a known good state
             ld.send_lens_packet(focus_packets[0], lens_driver_handle);
+            sleep_ms(lens_delay);
 
             switch (lens_step_order)
             {
                 case 1:
                     // get the out-of-focus image
-                    error = get_image(cam, lens_driver_handle, focus_packets[2], defocus_image);
+                    ld.send_lens_packet(focus_packets[2], lens_driver_handle);
+                    sleep_ms(lens_delay);
+                    error = get_image(cam, defocus_image);
                     if (error != FC2::PGRERROR_OK)
                     {
                         print_error(error);
                     }
 
-                    //sleep_ms(500);
 
                     // get the in-focus image
-                    error = get_image(cam, lens_driver_handle, focus_packets[1], focus_image);
+                    ld.send_lens_packet(focus_packets[1], lens_driver_handle);
+                    sleep_ms(lens_delay);
+                    error = get_image(cam, focus_image);
                     if (error != FC2::PGRERROR_OK)
                     {
                         print_error(error);
@@ -457,26 +421,27 @@ int main(int argc, char** argv)
 
                 default:
                     // get the in-focus image
-                    error = get_image(cam, lens_driver_handle, focus_packets[1], focus_image);
+                    ld.send_lens_packet(focus_packets[1], lens_driver_handle);
+                    sleep_ms(lens_delay);
+                    error = get_image(cam, focus_image);
                     if (error != FC2::PGRERROR_OK)
                     {
                         print_error(error);
                     }
 
-                    //sleep_ms(20);
-
                     // get the out-of-focus image
-                    error = get_image(cam, lens_driver_handle, focus_packets[2], defocus_image);
+                    ld.send_lens_packet(focus_packets[2], lens_driver_handle);
+                    sleep_ms(lens_delay);
+                    error = get_image(cam, defocus_image);
                     if (error != FC2::PGRERROR_OK)
                     {
                         print_error(error);
                     }
                     break;
 
-
             }
 
-            //sleep_ms(200);
+            sleep_ms(lens_delay);
 
             // display the input images
             cv::imshow(image_window, focus_image);
@@ -485,14 +450,12 @@ int main(int argc, char** argv)
 
             // process the images to get them in the right format for network input
             get_depth_map(dfd_net, focus_image, defocus_image, depth_map);
-
-            //jet_depth_map = dlib::toMat(depth_map);
-            //jet_depth_map.convertTo(jet_depth_map, CV_8UC1, 1, 0);
             
             cv_dm = dlib::toMat(depth_map);
             cv_dm.convertTo(cv_dm, CV_8UC1, 1, 0);
             
             cv::applyColorMap(cv_dm, cv_dm, cv::COLORMAP_JET);
+            //cv::applyColorMap(focus_image, cv_dm, cv::COLORMAP_JET);
 
             cv::imshow(depth_window, cv_dm);
 

@@ -8,5 +8,5 @@
 
 141, 129
 440, 312, 400, 400
-2400, 60, 20, 8.0
+2400, 60, 20, 1.0
 D:/Projects/dfd_dnn_cam/nets/dfd_net_dfd_6x_v14a_141_129_v3_32x32_HPC.dat
