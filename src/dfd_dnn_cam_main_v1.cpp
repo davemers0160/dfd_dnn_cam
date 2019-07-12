@@ -387,8 +387,11 @@ int main(int argc, char** argv)
         cv::namedWindow(image_window, cv::WindowFlags::WINDOW_NORMAL);
         cv::namedWindow(depth_window, cv::WindowFlags::WINDOW_NORMAL);
         cv::namedWindow(defocus_window, cv::WindowFlags::WINDOW_NORMAL);
+        cv::resizeWindow(image_window, 600, 600);
+        cv::resizeWindow(depth_window, 600, 600);
+        cv::resizeWindow(defocus_window, 600, 600);
 
-        uint32_t lens_delay = 50;
+        uint32_t lens_delay = 100;
 
         while (key != 'q')
         {
@@ -454,8 +457,7 @@ int main(int argc, char** argv)
             cv_dm = dlib::toMat(depth_map);
             cv_dm.convertTo(cv_dm, CV_8UC1, 1, 0);
             
-            cv::applyColorMap(cv_dm, cv_dm, cv::COLORMAP_JET);
-            //cv::applyColorMap(focus_image, cv_dm, cv::COLORMAP_JET);
+            //cv::applyColorMap(cv_dm, cv_dm, cv::COLORMAP_JET);
 
             cv::imshow(depth_window, cv_dm);
 
